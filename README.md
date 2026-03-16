@@ -22,7 +22,8 @@ Architecture diagram: `architecture/system_diagram.png`
 7. Response Recommendation Engine: defensive playbooks.
 8. Dashboard: interactive UI + charts.
 9. Threat History Log: SQLite history.
-10. Innovation: phishing simulation, risk trends, token highlighting.
+10. Update featues from the Threat recieved feedback (Self learning model).
+11. Innovation: phishing simulation, risk trends, token highlighting.
 
 ## Backend API
 Base URL: `http://localhost:8000`
