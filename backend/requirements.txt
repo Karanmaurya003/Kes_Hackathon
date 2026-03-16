@@ -1,0 +1,12 @@
+fastapi==0.110.2
+uvicorn==0.29.0
+scikit-learn==1.4.2
+joblib==1.4.2
+numpy==1.26.4
+pandas==2.2.2
+requests==2.32.3
+shap==0.45.1
+dnspython==2.6.1
+python-whois==0.8.0
+python-multipart==0.0.9
+pillow==10.3.0
