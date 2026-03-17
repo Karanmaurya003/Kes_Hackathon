@@ -37,17 +37,25 @@ export default function InputPanel({ onAnalyze, loading }) {
           />
         </div>
         <div>
-          <label className="text-sm uppercase tracking-wide">Screenshot (optional)</label>
+          <label className="text-sm uppercase tracking-wide">Screenshot</label>
           <input
             type="file"
             accept="image/*"
             onChange={handleFile}
             className="mt-2 w-full"
           />
+          {screenshot && (
+            <div className="mt-3 text-xs text-ink/60">Screenshot ready for OCR.</div>
+          )}
         </div>
+        {!url && !message && !screenshot && (
+          <div className="text-xs text-flare">
+            Add a URL, message, or screenshot to analyze.
+          </div>
+        )}
         <button
           onClick={() => onAnalyze({ url, message, screenshot })}
-          disabled={loading}
+          disabled={loading || (!url && !message && !screenshot)}
           className="w-full rounded-xl bg-ocean px-4 py-3 text-white font-semibold hover:bg-ink transition"
         >
           {loading ? "Analyzing..." : "Analyze Threat"}
