@@ -80,6 +80,7 @@ uvicorn main:app --reload --port 8000
 Set environment variables:
 ```
 setx VT_API_KEY "your_virustotal_key"
+setx TESSERACT_CMD "C:\Program Files\Tesseract-OCR\tesseract.exe"
 ```
 
 ### Frontend

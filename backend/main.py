@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any, Dict, List, Optional
 
@@ -12,12 +13,12 @@ from risk_engine import compute_risk_score, recommend_actions
 from url_detector import analyze_url
 from campaign import detect_campaigns
 from utils import (
-    base64_to_bytes,
     fetch_history,
     sanitize_text,
     sanitize_url,
     summarize_trends,
     log_scan,
+    ocr_screenshot,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,7 @@ MODEL_DIR = os.path.join(os.path.dirname(BASE_DIR), "models")
 URL_MODEL = os.path.join(MODEL_DIR, "url_model.pkl")
 MSG_MODEL = os.path.join(MODEL_DIR, "message_model.pkl")
 DB_PATH = os.path.join(BASE_DIR, "data", "phishlens.db")
+NEWS_PATH = os.path.join(os.path.dirname(BASE_DIR), "datasets", "news.json")
 
 app = FastAPI(title="PHISHLENS AI", version="0.1.0")
 
@@ -68,12 +70,16 @@ def health() -> Dict[str, str]:
 
 @app.post("/analyze")
 def analyze(payload: ThreatInput) -> Dict[str, Any]:
-    if not payload.url and not payload.message:
-        raise HTTPException(status_code=400, detail="Provide a URL or message to analyze.")
+    if not payload.url and not payload.message and not payload.screenshot:
+        raise HTTPException(status_code=400, detail="Provide a URL, message, or screenshot to analyze.")
 
     vt_api_key = os.getenv("VT_API_KEY")
     url_result = analyze_url(payload.url, URL_MODEL, vt_api_key) if payload.url else None
-    msg_result = analyze_message(payload.message, MSG_MODEL) if payload.message else None
+    ocr_result = ocr_screenshot(payload.screenshot) if payload.screenshot else {"status": "skipped", "text": ""}
+    combined_message = " ".join(
+        part for part in [payload.message or "", ocr_result.get("text", "")] if part
+    ).strip()
+    msg_result = analyze_message(combined_message, MSG_MODEL) if combined_message else None
     domain_result = analyze_domain(payload.url) if payload.url else None
 
     vt_stats = url_result.get("virustotal") if url_result else None
@@ -87,10 +93,12 @@ def analyze(payload: ThreatInput) -> Dict[str, Any]:
         "input": payload.dict(),
         "url_analysis": url_result,
         "message_analysis": msg_result,
+        "screenshot_ocr": ocr_result,
+        "message_used": combined_message,
         "domain_intelligence": domain_result,
         "explainability": {
             "url": explain_url(URL_MODEL, payload.url) if payload.url else None,
-            "message": explain_message(MSG_MODEL, payload.message) if payload.message else None,
+            "message": explain_message(MSG_MODEL, combined_message) if combined_message else None,
         },
         "risk": {
             "score": score,
@@ -139,3 +147,12 @@ def simulate() -> Dict[str, Any]:
 def campaigns(limit: int = 50) -> Dict[str, Any]:
     data = fetch_history(DB_PATH, limit=limit)
     return {"campaigns": detect_campaigns(data)}
+
+
+@app.get("/news")
+def news() -> Dict[str, Any]:
+    if not os.path.exists(NEWS_PATH):
+        return {"last_updated": None, "items": []}
+    with open(NEWS_PATH, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    return payload

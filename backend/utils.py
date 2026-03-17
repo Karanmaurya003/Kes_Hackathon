@@ -1,13 +1,24 @@
 import base64
+import io
 import json
 import os
 import re
+import shutil
 import sqlite3
 import time
 import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from PIL import Image
+except Exception:
+    Image = None
+
+try:
+    import pytesseract
+except Exception:
+    pytesseract = None
 SUSPICIOUS_TLDS = {
     "ru",
     "tk",
@@ -225,4 +236,37 @@ def base64_to_bytes(data_url: str) -> Optional[bytes]:
         return base64.b64decode(match.group(1))
     except Exception:
         return None
+
+
+def ocr_screenshot(data_url: str) -> Dict[str, Any]:
+    if not data_url:
+        return {"status": "skipped", "text": ""}
+    if Image is None or pytesseract is None:
+        return {"status": "error", "text": "", "reason": "OCR dependencies missing"}
+    tesseract_cmd = os.getenv("TESSERACT_CMD") or shutil.which("tesseract")
+    if not tesseract_cmd:
+        candidates = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                tesseract_cmd = path
+                break
+    if not tesseract_cmd:
+        return {"status": "error", "text": "", "reason": "tesseract_not_found"}
+    try:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    except Exception:
+        return {"status": "error", "text": "", "reason": "Invalid Tesseract path"}
+    raw = base64_to_bytes(data_url)
+    if not raw:
+        return {"status": "error", "text": "", "reason": "Invalid image data"}
+    try:
+        img = Image.open(io.BytesIO(raw))  # type: ignore[name-defined]
+        img = img.convert("L")
+        text = pytesseract.image_to_string(img, config="--psm 6")
+        return {"status": "ok", "text": sanitize_text(text)}
+    except Exception as exc:
+        return {"status": "error", "text": "", "reason": str(exc)}
 
